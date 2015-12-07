@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -- coding: utf-8 --
 
-__author__ = 'michael'
+from ui import NeuralNetworkApp
 
 
 def main():
-    pass
+    NeuralNetworkApp().run()
+
 
 if __name__ == '__main__':
     main()

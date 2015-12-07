@@ -5,7 +5,6 @@ import re
 import sys
 import os
 from os.path import sep, expanduser, isdir, dirname
-import platform
 
 # Import in this case needed for setting config
 # variables before others import. If we put
@@ -30,11 +29,13 @@ import kivy.uix.textinput as ti
 import kivy.core.window as wi
 import kivy.uix.filebrowser as fb
 import kivy.uix.modalview as mv
-import kivy.uix.dropdown as dd # import dropdown for district, square, rooms, year
-import kivy.uix.checkbox as check # import checkbox for infra and remonta
+import kivy.uix.dropdown as dd  # import dropdown for district, square, rooms, year
+import kivy.uix.checkbox as check  # import checkbox for infra and remonta
+import kivy.uix.widget as wg
 # Импортируем модуль, в котором создается сеть
 import neural
 import dataset_factor
+
 
 class FieldRules(ti.TextInput):
 
@@ -47,7 +48,53 @@ class FieldRules(ti.TextInput):
 
 class NeuralNetworkApp(app.App):
 
-    platform = platform.system().lower()
+    def __init__(self):
+        # Сетка для размещения элементов внутри окна.
+        self.grid = fl.FloatLayout(size=(200, 200))
+
+        # создание кнопки "Обучить сеть"
+        self.learn_button = btn.Button(text='Обучить сеть',
+                                size_hint=(.33, .10),
+                                font_size=self.autosize_font(0.038),
+                                pos_hint={'x': .68, 'y': .24},
+                                on_press=lambda f: self.learn_network())
+
+        # Создание кнопки "Загрузить сеть"
+        self.browse_button = btn.Button(text='Загрузить сеть',
+                                size_hint=(.33, .10),
+                                font_size=self.autosize_font(0.038),
+                                pos_hint={'x': .68, 'y': .12},
+                                on_press=lambda f: self.start_browsing())
+
+        # Создание кнопок "Рассчитать", "Очистить" и "Выход"
+        self.calculate_button = btn.Button(text='Рассчитать',
+                                           size_hint=(.33, .10),
+                                           font_size=self.autosize_font(0.038),
+                                           pos_hint={'x': .0, 'y': .0},
+                                           on_press=lambda f: self.calculate())
+        self.clear_button = btn.Button(text='Очистить все',
+                                       font_size=self.autosize_font(0.038),
+                                       size_hint=(.33, .10),
+                                       pos_hint={'x': .34, 'y': .0},
+                                       on_press=lambda f: self.clean_all())
+
+        self.exit_button = btn.Button(text='Выход',
+                                      size_hint=(.33, .10),
+                                      font_size=self.autosize_font(0.038),
+                                      pos_hint={'x': .68, 'y': .0},
+                                      on_press=lambda f: sys.exit())
+
+        # Всплывающее окно, взывающее пользователя проявить терпение.
+        # Пока сеть маленькая, может и не особо надо. В дальнейшем,
+        # я чувствую, точно пригодится
+        self.popup = pu.Popup(title='Loading',
+                              content=label.Label(text='Please, wait...'),
+                              size_hint=(None, None), size=(200, 200),
+                              auto_dismiss=False)
+
+        super(NeuralNetworkApp, self).__init__()
+
+
 
     @staticmethod
     def autosize_font(perc):
@@ -59,6 +106,8 @@ class NeuralNetworkApp(app.App):
         return perc * wi.Window.height
 
     def create_browser(self):
+        import platform
+        platform = platform.system().lower()
         if platform == 'win':
             user_path = dirname(expanduser('~')) + sep + 'Documents'
         else:
@@ -99,6 +148,7 @@ class NeuralNetworkApp(app.App):
         fake_input_value = []
         input_value = []
         try:
+            # сравниваем введены ли все необходимые данные
             input_value.append(neural.district_map[str(self.district_btn.text)])
             input_value.append(neural.square_map[str(self.square_btn.text)])
             input_value.append(neural.room_map[str(self.room_btn.text)])
@@ -110,6 +160,7 @@ class NeuralNetworkApp(app.App):
         except KeyError:
             raise SystemExit("One or more maps has no some attributes! Please check all points in menu! Thanks!")
 
+        # печать уже переведенных в числовые значения
         print 'RAION: '+str(neural.district_map[str(self.district_btn.text)])
         print 'PLOSHAD: '+str(neural.square_map[str(self.square_btn.text)])
         print 'KOMNATA: '+str(neural.room_map[str(self.room_btn.text)])
@@ -118,25 +169,41 @@ class NeuralNetworkApp(app.App):
         print 'REMONT: '+str(neural.remont_map[self.remont_check.active])
 
         try:
-            self.price_value_label = label.Label(text=str(int(self.network.test(fake_fake_input_value)*10000000)) + " rub",
+            try:
+                self.grid.remove_widget(self.price_value_label)
+            except AttributeError:
+                pass
+            # Рассчитываем окончательную цену частного дома
+            self.price_value_label = label.Label(text=str(int(self.network.simulate(fake_fake_input_value)*10000000)) + " rub",
                                                  size_hint=(.33, .10),
-                                                font_size=self.autosize_font(0.038),
-                                                pos_hint={'x': .30, 'y': .30})
-
+                                                 font_size=self.autosize_font(0.038),
+                                                 pos_hint={'x': .30, 'y': .30})
         except AttributeError:
+            # Если сеть не обучена или не загружена выводим на экран ошибку
             content = btn.Button(text='Сеть не обучена,\n либо не загружена из файла!')
-
             self.error_popup = pu.Popup(title='Error!',
-                              content=content,
-                              size_hint=(None, None), size=(300, 300),
-                              auto_dismiss=False)
-
+                                        content=content,
+                                        size_hint=(None, None), size=(300, 300),
+                                        auto_dismiss=False)
             content.bind(on_press=self.error_popup.dismiss)
             self.error_popup.open()
         else:
-            self.grid.add_widget(self.price_label)
+
+            ###########################################################################################################
+            self.price_label = label.Label(text='Цена на квартиру:',
+                                           size_hint=(.33, .10),
+                                           font_size=self.autosize_font(0.038),
+                                           pos_hint={'x': .0, 'y': .30})
+
+            # Иначе выводим окончательную цену за частный дом
+            try:
+                self.grid.add_widget(self.price_label)
+            except wg.WidgetException:
+                self.grid.remove_widget(self.price_label)
+                self.grid.add_widget(self.price_label)
             self.grid.add_widget(self.price_value_label)
 
+    # Метод отчистки всех элементов в UI
     def clean_all(self):
         try:
             self.grid.remove_widget(self.district_dd)
@@ -171,13 +238,13 @@ class NeuralNetworkApp(app.App):
     def create_env(self):
 
         ###############################################################################################################
-        # Ярлык с надписью район
+        # Ярлык с надписью "РАЙОН"
         self.district_label = label.Label(text='Район:',
                                           size_hint=(.33, .10),
                                           font_size=self.autosize_font(0.038),
                                           pos_hint={'x': .0, 'y': .90})
 
-        # выпадающее меню для выбора района
+        # Выпадающее меню "ВЫБОР РАЙОНА"
         self.district_dd = dd.DropDown()
         for index in ['Центр', 'Спальный', 'Окраина']:
             butn = btn.Button(text='{0}'.format(index),
@@ -186,23 +253,25 @@ class NeuralNetworkApp(app.App):
                               on_release=lambda butn: self.district_dd.select(butn.text))
 
             self.district_dd.add_widget(butn)
-        self.district_btn = btn.Button(text='Выберите район..',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .90})
+        self.district_btn = btn.Button(text='Выберите район.',
+                                       size_hint=(.33, .10),
+                                       pos_hint={'x': .30, 'y': .90})
         self.district_btn.bind(on_release=self.district_dd.open)
         self.district_dd.bind(on_select=lambda instance, x: setattr(self.district_btn, 'text', x))
 
+        # Выводим на экран надпись РАЙОН и выпадающий список выбора района
         self.grid.add_widget(self.district_label)
-
         self.grid.add_widget(self.district_btn)
 
         ###############################################################################################################
 
-        # Ярлык с надписью площадь
+        # Ярлык с надписью ПЛОЩАДЬ
         self.square_label = label.Label(text='Площадь:',
                                         size_hint=(.33, .10),
                                         font_size=self.autosize_font(0.038),
                                         pos_hint={'x': .0, 'y': .80})
 
-        # выпадающее меню для выбора площади дома
+        # Выпадающее меню для выбора площади дома
         self.square_dd = dd.DropDown()
         for index in ['< 50 м2', '50-100 м2', '100-150 м2', '150-200 м2', '200-250 м2', '> 250 м2']:
             butn = btn.Button(text='{0}'.format(index),
@@ -211,21 +280,23 @@ class NeuralNetworkApp(app.App):
                               on_release=lambda butn: self.square_dd.select(butn.text))
 
             self.square_dd.add_widget(butn)
-        self.square_btn = btn.Button(text='Выберите площадь..',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .80})
+        self.square_btn = btn.Button(text='Выберите площадь.',
+                                     size_hint=(.33, .10),
+                                     pos_hint={'x': .30, 'y': .80})
         self.square_btn.bind(on_release=self.square_dd.open)
         self.square_dd.bind(on_select=lambda instance, x: setattr(self.square_btn, 'text', x))
 
+        # Выводим на экран надпись ПЛОЩАДЬ и выпадающий список выбора желаемой площади
         self.grid.add_widget(self.square_label)
-
         self.grid.add_widget(self.square_btn)
 
         ###############################################################################################################
 
-        # Ярлык с надписью количества комнат
+        # Ярлык с надписью КОЛ-ВО КОМНАТ
         self.room_label = label.Label(text='Кол-во комнат:',
-                                          size_hint=(.33, .10),
-                                          font_size=self.autosize_font(0.038),
-                                          pos_hint={'x': .0, 'y': .70})
+                                      size_hint=(.33, .10),
+                                      font_size=self.autosize_font(0.038),
+                                      pos_hint={'x': .0, 'y': .70})
 
         # выпадающее меню для выбора количества комнат
         self.room_dd = dd.DropDown()
@@ -236,9 +307,14 @@ class NeuralNetworkApp(app.App):
                               on_release=lambda butn: self.room_dd.select(butn.text))
 
             self.room_dd.add_widget(butn)
-        self.room_btn = btn.Button(text='Выберите кол-во команат',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .70})
+        self.room_btn = btn.Button(text='Выберите кол-во команат',
+                                   size_hint=(.33, .10),
+                                   pos_hint={'x': .30, 'y': .70})
         self.room_btn.bind(on_release=self.room_dd.open)
         self.room_dd.bind(on_select=lambda instance, x: setattr(self.room_btn, 'text', x))
+
+
+        # Вывод на экран ярлыка и выпадающего списка для количества комнат
         self.grid.add_widget(self.room_label)
         self.grid.add_widget(self.room_btn)
 
@@ -246,9 +322,9 @@ class NeuralNetworkApp(app.App):
 
         # Ярлык с надписью Год
         self.year_label = label.Label(text='Год:',
-                                          size_hint=(.33, .10),
-                                          font_size=self.autosize_font(0.038),
-                                          pos_hint={'x': .0, 'y': .50})
+                                      size_hint=(.33, .10),
+                                      font_size=self.autosize_font(0.038),
+                                      pos_hint={'x': .0, 'y': .50})
 
         # выпадающее меню для выбора Года
         self.year_dd = dd.DropDown()
@@ -262,94 +338,59 @@ class NeuralNetworkApp(app.App):
         self.year_btn = btn.Button(text='Выберите год.',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .50})
         self.year_btn.bind(on_release=self.year_dd.open)
         self.year_dd.bind(on_select=lambda instance, x: setattr(self.year_btn, 'text', x))
+
+
+        # Вывод на экран ярлыка и выпадающего списка для ГОДА
         self.grid.add_widget(self.year_label)
         self.grid.add_widget(self.year_btn)
 
         ###############################################################################################################
 
-        # Ярлык с надписью Год
+        # Ярлык с надписью ИНФРАСТРУКТУРА
         self.infra_label = label.Label(text='Инфраструктура:',
                                           size_hint=(.33, .10),
                                           font_size=self.autosize_font(0.038),
                                           pos_hint={'x': .0, 'y': .60})
 
         self.infra_check = check.CheckBox(size_hint=(.33, .10), pos_hint={'x': .30, 'y': .60})
+
+        # Вывод на жкран ярлыка и чекбокса для инфраструктуры
         self.grid.add_widget(self.infra_label)
         self.grid.add_widget(self.infra_check)
-
         ###############################################################################################################
 
-        # Ярлык с надписью Год
+        # Ярлык с надписью РЕМОНТ
         self.remont_label = label.Label(text='Ремонт:',
-                                          size_hint=(.33, .10),
-                                          font_size=self.autosize_font(0.038),
-                                          pos_hint={'x': .0, 'y': .40})
+                                        size_hint=(.33, .10),
+                                        font_size=self.autosize_font(0.038),
+                                        pos_hint={'x': .0, 'y': .40})
 
         self.remont_check = check.CheckBox(size_hint=(.33, .10), pos_hint={'x': .30, 'y': .40})
+
+        # Вывод на экран ярлыка и чекбокса для ремонта
         self.grid.add_widget(self.remont_label)
         self.grid.add_widget(self.remont_check)
 
-        ###############################################################################################################
 
-        self.price_label = label.Label(text='Цена на квартиру:',
-                                       size_hint=(.33, .10),
-                                       font_size=self.autosize_font(0.038),
-                                       pos_hint={'x': .0, 'y': .30})
 
+    # метод загрузки сохранённой нейронной сети из файла
     def load_configuration(self, file_name):
+        # создаём нейронную сеть
         self.network = neural.NN(6, 2, 1)
+        # загружаем нейронную сеть из файла
         self.network.load(file_name)
 
+    # метод в которой производится обучение нейронной сети
     def learn_network(self):
         self.network = neural.NN(6, 2, 1)
         self.popup.open()
-        self.target = dataset_factor.dataset_fabric()
-        self.network.train(self.target)
+        self.target = dataset_factor.dataset_fabric()  # создание обучающих примеров
+        self.network.train(self.target)  # обучение по обучающим примерам
         self.popup.dismiss()
 
     def build(self):
-
-        # Сетка для размещения элементов внутри окна.
-        self.grid = fl.FloatLayout(size=(200, 200))
-
         self.create_env()
 
-        self.learn_button = btn.Button(text='Обучить сеть',
-                                size_hint=(.33, .10),
-                                font_size=self.autosize_font(0.038),
-                                pos_hint={'x': .68, 'y': .24},
-                                on_press=lambda f: self.learn_network())
-
-        self.browse_button = btn.Button(text='Загрузить сеть',
-                                size_hint=(.33, .10),
-                                font_size=self.autosize_font(0.038),
-                                pos_hint={'x': .68, 'y': .12},
-                                on_press=lambda f: self.start_browsing())
-
-        # Кнопки "Рассчитать", "Очистить" и "Выход"
-        self.calculate_button = btn.Button(text='Рассчитать',
-                                           size_hint=(.33, .10),
-                                           font_size=self.autosize_font(0.038),
-                                           pos_hint={'x': .0, 'y': .0},
-                                           on_press=lambda f: self.calculate())
-        self.clear_button = btn.Button(text='Очистить все',
-                                       font_size=self.autosize_font(0.038),
-                                       size_hint=(.33, .10),
-                                       pos_hint={'x': .34, 'y': .0},
-                                       on_press=lambda f: self.clean_all())
-        self.exit_button = btn.Button(text='Выход',
-                                      size_hint=(.33, .10),
-                                      font_size=self.autosize_font(0.038),
-                                      pos_hint={'x': .68, 'y': .0},
-                                      on_press=lambda f: sys.exit())
-
-        # Всплывающее окно, взывающее пользователя проявить терпение.
-        # Пока сеть маленькая, может и не особо надо. В дальнейшем,
-        # я чувствую, точно пригодится
-        self.popup = pu.Popup(title='Loading',
-                              content=label.Label(text='Please, wait...'),
-                              size_hint=(None, None), size=(200, 200),
-                              auto_dismiss=False)
         # Добавляем кнопки на форму
         self.grid.add_widget(self.learn_button)
         self.grid.add_widget(self.browse_button)
@@ -357,6 +398,3 @@ class NeuralNetworkApp(app.App):
         self.grid.add_widget(self.clear_button)
         self.grid.add_widget(self.exit_button)
         return self.grid
-
-if __name__ == '__main__':
-    NeuralNetworkApp().run()
