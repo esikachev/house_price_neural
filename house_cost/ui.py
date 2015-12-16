@@ -27,11 +27,12 @@ import kivy.uix.label as label
 import kivy.uix.popup as pu
 import kivy.uix.textinput as ti
 import kivy.core.window as wi
-import kivy.uix.filebrowser as fb
+import kivy.garden.filebrowser as fb
 import kivy.uix.modalview as mv
 import kivy.uix.dropdown as dd  # import dropdown for district, square, rooms, year
 import kivy.uix.checkbox as check  # import checkbox for infra and remonta
 import kivy.uix.widget as wg
+from kivy.core.window import Window
 # Импортируем модуль, в котором создается сеть
 import neural
 import dataset_factor
@@ -51,38 +52,37 @@ class NeuralNetworkApp(app.App):
     def __init__(self):
         # Сетка для размещения элементов внутри окна.
         self.grid = fl.FloatLayout(size=(200, 200))
-
+        Window.clearcolor = (0,0,0,255)
         # создание кнопки "Обучить сеть"
         self.learn_button = btn.Button(text='Обучить сеть',
                                 size_hint=(.33, .10),
                                 font_size=self.autosize_font(0.038),
-                                pos_hint={'x': .68, 'y': .24},
+                                pos_hint={'x': .68, 'y': .11},
                                 on_press=lambda f: self.learn_network())
+        self.color_btn(self.learn_button)
 
         # Создание кнопки "Загрузить сеть"
         self.browse_button = btn.Button(text='Загрузить сеть',
                                 size_hint=(.33, .10),
                                 font_size=self.autosize_font(0.038),
-                                pos_hint={'x': .68, 'y': .12},
+                                pos_hint={'x': .68, 'y': .0},
                                 on_press=lambda f: self.start_browsing())
+        self.color_btn(self.browse_button)
 
         # Создание кнопок "Рассчитать", "Очистить" и "Выход"
-        self.calculate_button = btn.Button(text='Рассчитать',
+        self.calculate_button = btn.Button(text='Подобрать',
                                            size_hint=(.33, .10),
                                            font_size=self.autosize_font(0.038),
                                            pos_hint={'x': .0, 'y': .0},
                                            on_press=lambda f: self.calculate())
-        self.clear_button = btn.Button(text='Очистить все',
+        self.color_btn(self.calculate_button)
+
+        self.clear_button = btn.Button(text='Очистить',
                                        font_size=self.autosize_font(0.038),
                                        size_hint=(.33, .10),
                                        pos_hint={'x': .34, 'y': .0},
                                        on_press=lambda f: self.clean_all())
-
-        self.exit_button = btn.Button(text='Выход',
-                                      size_hint=(.33, .10),
-                                      font_size=self.autosize_font(0.038),
-                                      pos_hint={'x': .68, 'y': .0},
-                                      on_press=lambda f: sys.exit())
+        self.color_btn(self.clear_button)
 
         # Всплывающее окно, взывающее пользователя проявить терпение.
         # Пока сеть маленькая, может и не особо надо. В дальнейшем,
@@ -94,7 +94,10 @@ class NeuralNetworkApp(app.App):
 
         super(NeuralNetworkApp, self).__init__()
 
-
+    @staticmethod
+    def color_btn(cl):
+        cl.color = (0,0,0,1)
+        cl.background_color=(0,100,200,200)
 
     @staticmethod
     def autosize_font(perc):
@@ -190,7 +193,7 @@ class NeuralNetworkApp(app.App):
         else:
 
             ###########################################################################################################
-            self.price_label = label.Label(text='Цена на квартиру:',
+            self.price_label = label.Label(text='Цена за автомобиль:',
                                            size_hint=(.33, .10),
                                            font_size=self.autosize_font(0.038),
                                            pos_hint={'x': .0, 'y': .30})
@@ -238,22 +241,22 @@ class NeuralNetworkApp(app.App):
     def create_env(self):
 
         ###############################################################################################################
-        # Ярлык с надписью "РАЙОН"
-        self.district_label = label.Label(text='Район:',
+        # Ярлык с надписью "Марка"
+        self.district_label = label.Label(text='* Марка:',
                                           size_hint=(.33, .10),
                                           font_size=self.autosize_font(0.038),
                                           pos_hint={'x': .0, 'y': .90})
 
-        # Выпадающее меню "ВЫБОР РАЙОНА"
+        # Выпадающее меню "Марка авто"
         self.district_dd = dd.DropDown()
-        for index in ['Центр', 'Спальный', 'Окраина']:
+        for index in ['BMW', 'Audi', 'Mercedes']:
             butn = btn.Button(text='{0}'.format(index),
                               size_hint_y=None,
                               height=44,
                               on_release=lambda butn: self.district_dd.select(butn.text))
 
             self.district_dd.add_widget(butn)
-        self.district_btn = btn.Button(text='Выберите район.',
+        self.district_btn = btn.Button(text='Выбрать',
                                        size_hint=(.33, .10),
                                        pos_hint={'x': .30, 'y': .90})
         self.district_btn.bind(on_release=self.district_dd.open)
@@ -265,109 +268,110 @@ class NeuralNetworkApp(app.App):
 
         ###############################################################################################################
 
-        # Ярлык с надписью ПЛОЩАДЬ
-        self.square_label = label.Label(text='Площадь:',
+        # Ярлык с надписью Пробег
+        self.square_label = label.Label(text='* Пробег:',
                                         size_hint=(.33, .10),
                                         font_size=self.autosize_font(0.038),
                                         pos_hint={'x': .0, 'y': .80})
 
-        # Выпадающее меню для выбора площади дома
+        # Выпадающее меню для выбора пробега авто
         self.square_dd = dd.DropDown()
-        for index in ['< 50 м2', '50-100 м2', '100-150 м2', '150-200 м2', '200-250 м2', '> 250 м2']:
+        for index in ['< 50000 км', '50000-100000 км', '100000-150000 км',
+                      '150000-200000 км', '200000-250000 км', '> 250000 км']:
             butn = btn.Button(text='{0}'.format(index),
                               size_hint_y=None,
                               height=44,
                               on_release=lambda butn: self.square_dd.select(butn.text))
 
             self.square_dd.add_widget(butn)
-        self.square_btn = btn.Button(text='Выберите площадь.',
+        self.square_btn = btn.Button(text='Выбрать',
                                      size_hint=(.33, .10),
                                      pos_hint={'x': .30, 'y': .80})
         self.square_btn.bind(on_release=self.square_dd.open)
         self.square_dd.bind(on_select=lambda instance, x: setattr(self.square_btn, 'text', x))
 
-        # Выводим на экран надпись ПЛОЩАДЬ и выпадающий список выбора желаемой площади
+        # Выводим на экран надпись Пробег и выпадающий список выбора желаемого пробега
         self.grid.add_widget(self.square_label)
         self.grid.add_widget(self.square_btn)
 
         ###############################################################################################################
 
-        # Ярлык с надписью КОЛ-ВО КОМНАТ
-        self.room_label = label.Label(text='Кол-во комнат:',
+        # Ярлык с надписью Объем двигателя
+        self.room_label = label.Label(text='* Объем двигателя:',
                                       size_hint=(.33, .10),
                                       font_size=self.autosize_font(0.038),
                                       pos_hint={'x': .0, 'y': .70})
 
         # выпадающее меню для выбора количества комнат
         self.room_dd = dd.DropDown()
-        for index in ['1', '2', '3', '4', '5']:
+        for index in ['1.6 л', '1.8 л', '2 л', '2.5 л', '3 л']:
             butn = btn.Button(text='{0}'.format(index),
                               size_hint_y=None,
                               height=44,
                               on_release=lambda butn: self.room_dd.select(butn.text))
 
             self.room_dd.add_widget(butn)
-        self.room_btn = btn.Button(text='Выберите кол-во команат',
+        self.room_btn = btn.Button(text='Выбрать',
                                    size_hint=(.33, .10),
                                    pos_hint={'x': .30, 'y': .70})
         self.room_btn.bind(on_release=self.room_dd.open)
         self.room_dd.bind(on_select=lambda instance, x: setattr(self.room_btn, 'text', x))
 
 
-        # Вывод на экран ярлыка и выпадающего списка для количества комнат
+        # Вывод на экран ярлыка и выпадающего списка для объема двигателя
         self.grid.add_widget(self.room_label)
         self.grid.add_widget(self.room_btn)
 
         ###############################################################################################################
 
         # Ярлык с надписью Год
-        self.year_label = label.Label(text='Год:',
+        self.year_label = label.Label(text='* Год:',
                                       size_hint=(.33, .10),
                                       font_size=self.autosize_font(0.038),
-                                      pos_hint={'x': .0, 'y': .50})
+                                      pos_hint={'x': .0, 'y': .60})
 
         # выпадающее меню для выбора Года
         self.year_dd = dd.DropDown()
-        for index in ['70е', '80е', '90е', '00е', '10е']:
+        for index in ['80е - 90е', '90е - 2000г', '2000г - 2005г', '2005г - 2010г']:
             butn = btn.Button(text='{0}'.format(index),
                               size_hint_y=None,
                               height=44,
                               on_release=lambda butn: self.year_dd.select(butn.text))
 
             self.year_dd.add_widget(butn)
-        self.year_btn = btn.Button(text='Выберите год.',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .50})
+        self.year_btn = btn.Button(text='Выбрать',  size_hint=(.33, .10), pos_hint={'x': .30, 'y': .60})
         self.year_btn.bind(on_release=self.year_dd.open)
         self.year_dd.bind(on_select=lambda instance, x: setattr(self.year_btn, 'text', x))
 
 
-        # Вывод на экран ярлыка и выпадающего списка для ГОДА
+        # Вывод на экран ярлыка и выпадающего списка для Года
         self.grid.add_widget(self.year_label)
         self.grid.add_widget(self.year_btn)
 
         ###############################################################################################################
 
         # Ярлык с надписью ИНФРАСТРУКТУРА
-        self.infra_label = label.Label(text='Инфраструктура:',
+        self.infra_label = label.Label(text='Кабриолет:',
                                           size_hint=(.33, .10),
                                           font_size=self.autosize_font(0.038),
-                                          pos_hint={'x': .0, 'y': .60})
+                                          pos_hint={'x': .0, 'y': .50})
 
-        self.infra_check = check.CheckBox(size_hint=(.33, .10), pos_hint={'x': .30, 'y': .60})
+        self.infra_check = check.CheckBox(size_hint=(.33, .10), pos_hint={'x': .30, 'y': .50})
 
-        # Вывод на жкран ярлыка и чекбокса для инфраструктуры
+        # Вывод на экран ярлыка и чекбокса для кабриолета
         self.grid.add_widget(self.infra_label)
         self.grid.add_widget(self.infra_check)
         ###############################################################################################################
 
-        # Ярлык с надписью РЕМОНТ
-        self.remont_label = label.Label(text='Ремонт:',
+        # Ярлык с надписью "Немецкая сборка"
+        self.remont_label = label.Label(text='Немецкая сборка:',
                                         size_hint=(.33, .10),
                                         font_size=self.autosize_font(0.038),
                                         pos_hint={'x': .0, 'y': .40})
 
         self.remont_check = check.CheckBox(size_hint=(.33, .10), pos_hint={'x': .30, 'y': .40})
 
-        # Вывод на экран ярлыка и чекбокса для ремонта
+        # Вывод на экран ярлыка и чекбокса для "Немецкая сборка"
         self.grid.add_widget(self.remont_label)
         self.grid.add_widget(self.remont_check)
 
@@ -396,5 +400,4 @@ class NeuralNetworkApp(app.App):
         self.grid.add_widget(self.browse_button)
         self.grid.add_widget(self.calculate_button)
         self.grid.add_widget(self.clear_button)
-        self.grid.add_widget(self.exit_button)
         return self.grid
